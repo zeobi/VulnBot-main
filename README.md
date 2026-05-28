@@ -22,6 +22,8 @@
 
 VulnBot is an advanced automated penetration testing framework that utilizes Large Language Models (LLMs) to replicate the workflow of human penetration testing teams within a multi-agent system. This innovative approach enhances efficiency, collaboration, and adaptability in security assessments.
 
+This repository is maintained as a Git-tracked project for collaborative development and deployment verification.
+
 ![VulnBot Framework](images/model.png)
 
 *This RAG implementation is based on [Langchain-Chatchat](https://github.com/chatchat-space/Langchain-Chatchat). Special thanks to the authors.*
@@ -117,4 +119,3 @@ If you use VulnBot for academic purposes, please cite our [paper](https://arxiv.
 ## Contact
 
 If you have any questions or suggestions, please open an issue on GitHub. Contributions, discussions, and improvements are always welcome!
-
