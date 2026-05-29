@@ -24,6 +24,8 @@ VulnBot is an advanced automated penetration testing framework that utilizes Lar
 
 This repository is maintained as a Git-tracked project for collaborative development and deployment verification.
 
+Git workflow verification time: 2026-05-29 22:43:46 +08:00
+
 ![VulnBot Framework](images/model.png)
 
 *This RAG implementation is based on [Langchain-Chatchat](https://github.com/chatchat-space/Langchain-Chatchat). Special thanks to the authors.*
