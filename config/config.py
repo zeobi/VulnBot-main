@@ -30,6 +30,12 @@ class BasicConfig(BaseFileSettings):
 
     mode: str = Mode.Auto
 
+    command_validator: dict = {
+        "enabled": True,
+        "max_retries": 2,
+        "model_conversation_id": None,
+    }
+
     @cached_property
     def LOG_PATH(self) -> Path:
 
@@ -41,10 +47,10 @@ class BasicConfig(BaseFileSettings):
     http_default_timeout: int = 300
 
     kali: dict = {
-        "hostname": "10.10.0.5",
+        "hostname": "",
         "port": 22,
-        "username": "root",
-        "password": "root",
+        "username": "",
+        "password": "",
     }
 
     default_bind_host: str = "0.0.0.0" if sys.platform != "win32" else "127.0.0.1"

@@ -9,6 +9,15 @@ class SSHOutputHandler:
 
     ENCODINGS = ['utf-8', 'latin-1', 'cp1252', 'ascii']
     BUFFER_SIZE = 8192
+    ANSI_PATTERN = re.compile(
+        r"""
+        \x1b\][^\x07]*(?:\x07|\x1b\\)|
+        \x1b[PX^_].*?\x1b\\|
+        \x1b[@-Z\\-_]|
+        \x1b\[[0-?]*[ -/]*[@-~]
+        """,
+        re.VERBOSE | re.DOTALL,
+    )
 
     @staticmethod
     def decode_output(data: bytes) -> str:
@@ -72,7 +81,35 @@ class SSHOutputHandler:
             # Continuously receive more data from the shell
             time.sleep(0.1)  # Small delay to avoid tight loop
 
-        return out  # Return whatever has been received so far
+        return SSHOutputHandler.clean_terminal_output(out)
+
+    @staticmethod
+    def clean_terminal_output(output: str) -> str:
+        """Remove terminal control noise and binary-looking data before logging."""
+        if not output:
+            return output
+
+        output = SSHOutputHandler.ANSI_PATTERN.sub("", output)
+        output = output.replace("\x00", "")
+
+        # Resolve simple backspace redraw sequences such as progress updates.
+        while "\b" in output:
+            output = re.sub(r".\x08", "", output)
+            output = output.replace("\x08", "")
+
+        cleaned_chars = []
+        binary_like = 0
+        for char in output:
+            if char in "\r\n\t" or char.isprintable():
+                cleaned_chars.append(char)
+            else:
+                binary_like += 1
+
+        cleaned = "".join(cleaned_chars)
+        if binary_like > 32:
+            cleaned += f"\n[Output sanitized: removed {binary_like} non-text characters]"
+
+        return cleaned
 
 
 class RemoteShell:
@@ -124,6 +161,7 @@ class RemoteShell:
         output = self._handle_normal_execution()
 
         final_output = ''.join(output)
+        final_output = SSHOutputHandler.clean_terminal_output(final_output)
 
         if "dirb" in cmd and "gobuster" not in cmd:
             return clean_dirb_output(final_output)

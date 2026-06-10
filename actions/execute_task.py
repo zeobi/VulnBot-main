@@ -65,11 +65,14 @@ class ExecuteTask(BaseModel):
         }, response=result)
 
     def shell_operation(self):
-        result = ""
         thought = self.parse_response()
         self.code = thought
         logger.info(f"Running {thought}")
-        # 执行命令列表
+        return self.execute_commands(thought)
+
+    def execute_commands(self, commands: List[str]) -> str:
+        result = ""
+        self.code = commands
         shell = ShellManager.get_instance().get_shell()
         try:
             SMB_PROMPTS = [
@@ -85,7 +88,7 @@ class ExecuteTask(BaseModel):
 
             skip_next = False
 
-            for i, command in enumerate(self.code):
+            for i, command in enumerate(commands):
                 # 添加跳过标记
                 if skip_next:
                     skip_next = False
@@ -99,18 +102,18 @@ class ExecuteTask(BaseModel):
                 last_line = out_line[-1]
 
                 if any(prompt in last_line for prompt in PASSWORD_PROMPTS):
-                    if i + 1 < len(self.code):
-                        result += f'Action:{self.code[i + 1]}\nObservation: '
-                        next_output = shell.execute_cmd(self.code[i + 1])
+                    if i + 1 < len(commands):
+                        result += f'Action:{commands[i + 1]}\nObservation: '
+                        next_output = shell.execute_cmd(commands[i + 1])
                         result += next_output + '\n'
                         skip_next = True
                         if any(prompt in next_output.strip().split('\n')[-1] for prompt in PASSWORD_PROMPTS):
                             shell.shell.send('\x03')  # Send Ctrl+C
                             time.sleep(0.5)  # Wait for Ctrl+C to take effect
                             # Clear the previous result
-                            result = result.rsplit('Action:', 1)[0] + f'Action:{self.code[i + 1]}\nObservation: '
+                            result = result.rsplit('Action:', 1)[0] + f'Action:{commands[i + 1]}\nObservation: '
                             # Resend the second command
-                            new_output = shell.execute_cmd(self.code[i + 1])
+                            new_output = shell.execute_cmd(commands[i + 1])
                             result += new_output + '\n'
                     else:
                         shell.shell.send('\x03')  # Send Ctrl+C for single command case

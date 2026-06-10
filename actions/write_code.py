@@ -14,11 +14,15 @@ class WriteCode(BaseModel):
 
     action: str
 
-    def run(self):
-
+    def generate(self):
         logger.info(f"next_task: {self.next_task}")
         response, _ = _chat(query=DeepPentestPrompt.write_code.format(next_task=self.next_task))
         logger.info(f"LLM Response: {response}")
+        return response
+
+    def run(self):
+
+        response = self.generate()
 
         code_executor = ExecuteTask(action=self.action, instruction=response, code=[])
 
