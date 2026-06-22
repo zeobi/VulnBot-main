@@ -1,3 +1,3 @@
 # Project Memory
 
-- Python environment: use the Conda environment named `Vulnbot` for this project.
+- Python environment: use a project-local virtual environment at `.venv` with Python 3.11.

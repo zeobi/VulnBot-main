@@ -1,11 +1,9 @@
 import click
 
 from config.config import Configs
-from utils.session import create_tables
+from db.session import create_tables
 from startup import main as startup_main
 from pentest import main as pentest_main
-from experiment.pentestgpt import main as pentestgpt_main
-from experiment.base import main as base_main
 
 from utils.log_common import build_logger
 
@@ -35,10 +33,6 @@ def init():
 
 main.add_command(startup_main, "start")
 main.add_command(pentest_main, "vulnbot")
-main.add_command(pentestgpt_main, "pentestgpt")
-main.add_command(base_main, "base")
-
-
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@ import uuid
 from typing import Dict, List
 
 from db.models.message_model import Message, MessageModel
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session

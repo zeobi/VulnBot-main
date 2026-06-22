@@ -2,7 +2,7 @@ import uuid
 
 from actions.planner import Planner
 from db.models.plan_model import Plan, PlanModel
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session

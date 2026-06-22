@@ -1,20 +1,22 @@
 import asyncio
 import re
-import time
-
 import httpx
 from typing import List, Optional
 from abc import ABC
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
 from ollama import Client
 from starlette.concurrency import run_in_threadpool
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from config.config import Configs
+from config.config import Configs, resolve_llm_api_key
 from db.repository.conversation_repository import add_conversation_to_db
 from db.repository.message_repository import get_conversation_messages, add_message_to_db
-from rag.kb.api.kb_doc_api import search_docs
-from rag.reranker.reranker import LangchainReranker
 from server.utils.utils import LLMType, replace_ip_with_targetip
 from utils.log_common import build_logger
 
@@ -24,29 +26,40 @@ logger = build_logger()
 class OpenAIChat(ABC):
     def __init__(self, config):
         self.config = config
-        self.client = OpenAI(api_key=self.config.api_key, base_url=self.config.base_url, timeout=config.timeout)
+        self.client = OpenAI(
+            api_key=resolve_llm_api_key(self.config),
+            base_url=self.config.base_url,
+            timeout=config.timeout,
+        )
         self.model_name = self.config.llm_model_name
 
     @retry(
-        stop=stop_after_attempt(3),  # Stop after 3 attempts
+        retry=retry_if_exception_type(
+            (
+                RateLimitError,
+                APIConnectionError,
+                APITimeoutError,
+                InternalServerError,
+                httpx.ReadTimeout,
+                httpx.ConnectTimeout,
+                ConnectionError,
+            )
+        ),
+        wait=wait_exponential(multiplier=2, min=5, max=60),
+        stop=stop_after_attempt(5),
+        reraise=True,
+        before_sleep=lambda retry_state: logger.warning(
+            f"Transient LLM error; retrying attempt {retry_state.attempt_number + 1}: "
+            f"{retry_state.outcome.exception()}"
+        ),
     )
     def chat(self, history: List) -> str:
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=history,
-                temperature=self.config.temperature,
-            )
-            ans = response.choices[0].message.content
-            return ans
-        except (httpx.HTTPStatusError, httpx.ReadTimeout,
-                    httpx.ConnectTimeout, ConnectionError) as e:
-            if getattr(e, "response", None) and e.response.status_code == 429:
-                # Rate limit error, wait longer
-                time.sleep(2)
-            raise  # Re-raise the exception to trigger retry
-        except Exception as e:
-            return f"**ERROR**: {str(e)}"
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=history,
+            temperature=self.config.temperature,
+        )
+        return response.choices[0].message.content
 
 
 class OllamaChat(ABC):
@@ -69,13 +82,16 @@ class OllamaChat(ABC):
             )
             ans = response["message"]["content"]
             return ans
-        except httpx.HTTPStatusError as e:
-            return f"**ERROR**: {str(e)}"
+        except httpx.HTTPStatusError:
+            raise
 
 
 def _chat(query: str, kb_name=None, conversation_id=None, kb_query=None, summary=True):
     try:
         if Configs.basic_config.enable_rag and kb_name is not None:
+            from rag.kb.api.kb_doc_api import search_docs
+            from rag.reranker.reranker import LangchainReranker
+
             docs = asyncio.run(run_in_threadpool(search_docs,
                                                  query=kb_query,
                                                  knowledge_base_name=kb_name,
@@ -145,6 +161,6 @@ def _chat(query: str, kb_name=None, conversation_id=None, kb_query=None, summary
         else:
             return response_text, conversation_id
 
-    except Exception as e:
-        print(e)
-        return f"**ERROR**: {str(e)}"
+    except Exception:
+        logger.exception("LLM request failed")
+        raise

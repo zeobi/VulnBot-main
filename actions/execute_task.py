@@ -5,7 +5,6 @@ from typing import List
 from click import prompt
 from pydantic import BaseModel
 
-from actions.run_code import RunCode
 from actions.shell_manager import ShellManager
 from config.config import Configs, Mode
 
@@ -82,7 +81,7 @@ class ExecuteTask(BaseModel):
 
             PASSWORD_PROMPTS = [
                 'password:',
-                'Password for'
+                'Password for',
                 '[sudo] password for',
             ]
 
@@ -104,7 +103,7 @@ class ExecuteTask(BaseModel):
                 if any(prompt in last_line for prompt in PASSWORD_PROMPTS):
                     if i + 1 < len(commands):
                         result += f'Action:{commands[i + 1]}\nObservation: '
-                        next_output = shell.execute_cmd(commands[i + 1])
+                        next_output = shell.send_input(commands[i + 1])
                         result += next_output + '\n'
                         skip_next = True
                         if any(prompt in next_output.strip().split('\n')[-1] for prompt in PASSWORD_PROMPTS):
@@ -113,7 +112,7 @@ class ExecuteTask(BaseModel):
                             # Clear the previous result
                             result = result.rsplit('Action:', 1)[0] + f'Action:{commands[i + 1]}\nObservation: '
                             # Resend the second command
-                            new_output = shell.execute_cmd(commands[i + 1])
+                            new_output = shell.send_input(commands[i + 1])
                             result += new_output + '\n'
                     else:
                         shell.shell.send('\x03')  # Send Ctrl+C for single command case

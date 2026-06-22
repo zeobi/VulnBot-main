@@ -15,6 +15,7 @@ class DeepPentestPrompt:
     The plan should consist of 1 to 5 tasks, using as few tasks as possible.
     ## Example:
     Output a list of JSON objects, formatted as shown below and wrapped in <json></json> tags:
+    Return strict JSON. Inside JSON strings, escape every backslash as \\\\ (for example, write C:\\\\temp in the JSON text).
     <json>
     [
         {
@@ -82,6 +83,8 @@ class DeepPentestPrompt:
     - Only add new tasks when necessary and directly related to the current penetration testing step.
     - Ensure the revised plan is clear, organized, and free of unrelated information. 
     - Always include the target IP or port in the instruction.
+    - Return the complete revised plan as strict JSON wrapped in <json></json> tags.
+    - Inside JSON strings, escape every backslash as \\\\.
     - If no task is applicable for this stage, the output should be empty.
     - You should also take into account the issue of shell sharing. For instance, if the previous task has already entered a different shell, there’s no need to re-execute the preceding command.
     ## Init Description:

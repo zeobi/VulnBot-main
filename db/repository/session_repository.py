@@ -2,14 +2,16 @@ import uuid
 from typing import List
 
 from db.models.session_model import Session, SessionModel
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session
 def add_session_to_db(session, session_data):
+    if not session_data.id:
+        session_data.id = uuid.uuid4().hex
 
-    new_task = SessionModel(
-        id=uuid.uuid4().hex,
+    row = SessionModel(
+        id=session_data.id,
         name=session_data.name,
         current_role_name=session_data.current_role_name,
         init_description=session_data.init_description,
@@ -17,7 +19,8 @@ def add_session_to_db(session, session_data):
         history_planner_ids=','.join(session_data.history_planner_ids)
     )
 
-    session.add(new_task)
+    session.merge(row)
+    return session_data.id
 
 
 @with_session

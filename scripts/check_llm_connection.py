@@ -20,23 +20,34 @@ def mask_secret(value: str) -> str:
 
 def main() -> int:
     from openai import OpenAI
-    from config.config import Configs
+    from config.config import Configs, PENTEST_ROOT, is_valid_env_var_name, resolve_llm_api_key
 
     cfg = Configs.llm_config
 
     parser = argparse.ArgumentParser(description="Test LLM connectivity for VulnBot.")
-    parser.add_argument("--api-key", default=cfg.api_key, help="Override API key")
+    parser.add_argument("--api-key", default=resolve_llm_api_key(cfg), help="Override API key")
     parser.add_argument("--base-url", default=cfg.base_url, help="Override OpenAI-compatible base URL")
     parser.add_argument("--model", default=cfg.llm_model_name, help="Override model name")
     parser.add_argument("--timeout", type=float, default=float(cfg.timeout), help="Request timeout in seconds")
     args = parser.parse_args()
 
     print("[Config]")
+    config_path = PENTEST_ROOT / "model_config.yaml"
+    print(f"  config_file: {str(config_path)!r}")
+    key_env_display = cfg.api_key_env if is_valid_env_var_name(cfg.api_key_env) else "<invalid>"
+    print(f"  api_key_env: {key_env_display!r}")
     print(f"  base_url: {args.base_url!r}")
     print(f"  model: {args.model!r}")
     print(f"  api_key: {mask_secret(args.api_key)}")
     print(f"  timeout: {args.timeout}")
 
+    if not config_path.is_file():
+        print(f"[FAIL] model config does not exist: {config_path}")
+        return 2
+    if cfg.api_key_env and not is_valid_env_var_name(cfg.api_key_env):
+        print("[FAIL] api_key_env must contain an environment variable name, not an API key.")
+        print("[FAIL] Move the key to api_key, or set api_key_env to a name such as DEEPSEEK_API_KEY.")
+        return 2
     if not args.api_key:
         print("[FAIL] api_key is empty.")
         return 2
@@ -61,9 +72,12 @@ def main() -> int:
                 {"role": "user", "content": "Reply with exactly: pong"},
             ],
             temperature=0,
-            max_tokens=8,
+            max_tokens=128,
         )
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content or ""
+        if not content.strip():
+            print("[FAIL] LLM returned an empty response body.")
+            return 1
         print("[OK] LLM request succeeded.")
         print(f"[OK] Response: {content!r}")
         return 0

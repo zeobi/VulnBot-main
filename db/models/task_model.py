@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy import Column, String, Boolean, Integer, JSON, ForeignKey, TEXT
 from sqlalchemy.orm import relationship
 
-from utils.session import Base
+from db.session import Base
 from pydantic import *
 
 class TaskModel(Base):

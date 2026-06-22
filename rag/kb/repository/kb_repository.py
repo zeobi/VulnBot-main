@@ -1,5 +1,5 @@
 from rag.kb.models.kb_document_model import KnowledgeBaseModel, KnowledgeBaseSchema
-from utils.session import with_session
+from db.session import with_session
 from utils.log_common import build_logger
 
 logger = build_logger()

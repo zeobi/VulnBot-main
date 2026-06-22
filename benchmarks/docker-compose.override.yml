@@ -1,0 +1,4 @@
+services:
+  kali_master:
+    ports:
+      - "${VULNBOT_KALI_SSH_BIND:-127.0.0.1}:${VULNBOT_KALI_SSH_PORT:-2223}:22"

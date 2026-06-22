@@ -3,7 +3,7 @@ from typing import Dict, List
 from rag.kb.models.kb_document_model import KnowledgeBaseModel
 from rag.kb.models.knowledge_file_model import FileDocModel, KnowledgeFileModel
 from rag.kb.utils.kb_utils import KnowledgeFile
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session

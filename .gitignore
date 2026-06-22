@@ -7,6 +7,8 @@
 debug/
 target/
 __pycache__/
+.python311/
+.venv/
 
 .idea/
 .pytest_cache

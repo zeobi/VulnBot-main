@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 from pydantic import BaseModel
@@ -7,7 +8,7 @@ from config.config import Configs
 from db.models.task_model import TaskModel, Task
 from prompts.prompt import DeepPentestPrompt
 from db.models.plan_model import Plan
-from server.chat.chat import _chat
+from llm.chat import _chat
 from utils.log_common import build_logger
 
 logger = build_logger()
@@ -49,11 +50,15 @@ class Planner(BaseModel):
                                                   True, False, result)
 
         # 更新
-        updated_response = (WritePlan(plan_chat_id=self.current_plan.plan_chat_id)
-                            .update(task_result,
-                                    self.current_plan.finished_success_tasks,
-                                    self.current_plan.finished_fail_tasks,
-                                    self.init_description))
+        try:
+            updated_response = (WritePlan(plan_chat_id=self.current_plan.plan_chat_id)
+                                .update(task_result,
+                                        self.current_plan.finished_success_tasks,
+                                        self.current_plan.finished_fail_tasks,
+                                        self.init_description))
+        except (json.JSONDecodeError, ValueError):
+            logger.exception("Plan update remained invalid after JSON repair; keeping current plan")
+            return self.next_task_details()
 
         logger.info(f"updated_plan: {updated_response}")
 

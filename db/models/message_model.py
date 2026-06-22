@@ -3,7 +3,7 @@ from typing import Optional, Dict
 
 from sqlalchemy import Column, String, JSON, DateTime, func, TEXT
 from pydantic import *
-from utils.session import Base
+from db.session import Base
 
 
 class MessageModel(Base):

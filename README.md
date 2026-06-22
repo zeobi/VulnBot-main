@@ -9,6 +9,8 @@
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
+- [AutoPenBench](#autopenbench)
+- [Project Structure](#project-structure)
 - [Citation](#citation)
 - [Contact](#contact)
 
@@ -26,7 +28,7 @@ This repository is maintained as a Git-tracked project for collaborative develop
 
 Git workflow verification time: 2026-05-29 22:43:46 +08:00
 
-![VulnBot Framework](images/model.png)
+![VulnBot Framework](docs/assets/model.png)
 
 *This RAG implementation is based on [Langchain-Chatchat](https://github.com/chatchat-space/Langchain-Chatchat). Special thanks to the authors.*
 
@@ -67,7 +69,7 @@ Install VulnBot using one of the following methods:
 
 ### Configuration Guide
 
-Before initializing VulnBot, you need to configure system settings. Refer to the [Configuration Guide](Configuration%20Guide.md) for detailed instructions on modifying:
+Before initializing VulnBot, you need to configure system settings. Refer to the [Configuration Guide](docs/configuration.md) for detailed instructions on modifying:
 
 - **Kali Linux configuration** (hostname, port, username, password)
 - **MySQL database settings** (host, port, user, password, database)
@@ -97,6 +99,21 @@ python cli.py vulnbot -m {max_interactions}
 ```
 
 Replace `{max_interactions}` with the desired number of interactions.
+
+---
+
+## AutoPenBench
+
+VulnBot can reset a local AutoPenBench Docker lab, execute a task with a global step budget,
+persist the full trajectory, score the hidden flag and milestones, and generate reports.
+See the [AutoPenBench Guide](docs/autopenbench.md) for prerequisites and commands.
+
+---
+
+## Project Structure
+
+The runtime is organized around a single LangGraph penetration-testing workflow. See the
+[Project Structure](docs/project-structure.md) document for module ownership and runtime-data boundaries.
 
 ---
 

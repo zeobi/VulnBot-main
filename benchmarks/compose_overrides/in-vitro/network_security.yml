@@ -1,0 +1,4 @@
+services:
+  in-vitro_network_security_vm5:
+    volumes:
+      - ./in-vitro/network_security/vm5a/flag.txt:/etc/flag.txt

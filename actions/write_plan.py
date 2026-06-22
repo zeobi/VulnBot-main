@@ -8,19 +8,44 @@ from config.config import Configs
 from prompts.prompt import DeepPentestPrompt
 from db.models.plan_model import Plan
 from db.models.task_model import TaskModel, Task
-from server.chat.chat import _chat
+from llm.chat import _chat
 
 
 class WritePlan(BaseModel):
     plan_chat_id: str
 
+    @staticmethod
+    def _extract_json(response: str) -> str | None:
+        match = re.search(r'<json>(.*?)</json>', response, re.DOTALL)
+        return match.group(1) if match else None
+
+    def _validate_or_repair(self, response: str) -> str:
+        try:
+            parse_plan_json(response)
+            return response
+        except (json.JSONDecodeError, ValueError) as error:
+            repair_response = _chat(
+                query=(
+                    "Correct the malformed plan below and return only the complete "
+                    "strict JSON array wrapped in <json></json>. Preserve its meaning "
+                    "and escape all quotes and backslashes required by JSON.\n"
+                    f"Parser error: {error}\nMalformed plan:\n{response}"
+                ),
+                conversation_id=self.plan_chat_id,
+                summary=False,
+            )
+            repaired = self._extract_json(repair_response)
+            if repaired is None:
+                raise ValueError("LLM JSON repair response omitted <json> tags") from error
+            parse_plan_json(repaired)
+            return repaired
+
     def run(self, init_description) -> str:
         rsp = _chat(query=DeepPentestPrompt.write_plan, conversation_id=self.plan_chat_id, kb_name=Configs.kb_config.kb_name, kb_query=init_description)
 
-        match = re.search(r'<json>(.*?)</json>', rsp, re.DOTALL)
-        if match:
-            code = match.group(1)
-            return code
+        code = self._extract_json(rsp)
+        if code is not None:
+            return self._validate_or_repair(code)
 
     def update(self, task_result, success_task, fail_task, init_description) -> str:
         rsp = _chat(
@@ -37,14 +62,13 @@ class WritePlan(BaseModel):
         if rsp == "":
             return rsp
 
-        match = re.search(r'<json>(.*?)</json>', rsp, re.DOTALL)
-        if match:
-            code = match.group(1)
-            return code
+        code = self._extract_json(rsp)
+        if code is not None:
+            return self._validate_or_repair(code)
 
 
 def parse_tasks(response: str, current_plan: Plan):
-    response = json.loads(response)
+    response = parse_plan_json(response)
 
     tasks = import_tasks_from_json(current_plan.id, response)
 
@@ -52,18 +76,58 @@ def parse_tasks(response: str, current_plan: Plan):
 
     return current_plan
 
-def preprocess_json_string(json_str):
-     # Use a regular expression to find invalid escape sequences
-    json_str = re.sub(r'\\([@!])', r'\\\\\1', json_str)
+def preprocess_json_string(json_str: str) -> str:
+    """Escape bare backslashes that are invalid inside JSON strings."""
+    result = []
+    index = 0
+    in_string = False
+    simple_escapes = {'"', '\\', '/', 'b', 'f', 'n', 'r', 't'}
 
-    return json_str
+    while index < len(json_str):
+        char = json_str[index]
+        if char == '"':
+            in_string = not in_string
+            result.append(char)
+            index += 1
+            continue
+
+        if char != '\\' or not in_string:
+            result.append(char)
+            index += 1
+            continue
+
+        next_char = json_str[index + 1] if index + 1 < len(json_str) else ''
+        if next_char in simple_escapes:
+            result.extend((char, next_char))
+            index += 2
+            continue
+
+        unicode_escape = json_str[index + 2:index + 6]
+        if next_char == 'u' and len(unicode_escape) == 4 and all(
+            digit in '0123456789abcdefABCDEF' for digit in unicode_escape
+        ):
+            result.append(json_str[index:index + 6])
+            index += 6
+            continue
+
+        result.append('\\\\')
+        index += 1
+
+    return ''.join(result)
+
+
+def parse_plan_json(response: str) -> List[Dict]:
+    if not isinstance(response, str) or not response.strip():
+        raise ValueError("Plan response is empty")
+
+    processed_response = preprocess_json_string(response.strip())
+    parsed = json.loads(processed_response)
+    if not isinstance(parsed, list):
+        raise ValueError("Plan response must be a JSON array")
+    return parsed
 
 def merge_tasks(response: str, current_plan: Plan):
-
-    # Preprocess the input JSON string
-    processed_response = preprocess_json_string(response)
-
-    response = json.loads(processed_response)
+    response = parse_plan_json(response)
 
     tasks = merge_tasks_from_json(current_plan.id, response, current_plan.tasks)
 
