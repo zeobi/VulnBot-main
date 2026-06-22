@@ -73,7 +73,7 @@ def main() -> int:
 
     if not args.uri:
         print("[FAIL] No Milvus URI was provided and kb_config.yaml has no milvus.uri.")
-        print("       Example: python scripts/test_milvus_connection.py --uri http://222.201.144.177:19530")
+        print("       Example: python scripts/check_milvus_connection.py --uri http://127.0.0.1:19530")
         return 2
 
     try:

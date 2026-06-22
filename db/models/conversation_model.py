@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, DateTime, func
 
-from utils.session import Base
+from db.session import Base
 
 
 class Conversation(Base):

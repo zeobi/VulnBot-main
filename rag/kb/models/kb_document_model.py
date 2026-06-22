@@ -5,7 +5,7 @@ from langchain_core.documents import Document
 
 from sqlalchemy import Column, Integer, String, DateTime, func
 
-from utils.session import Base
+from db.session import Base
 
 
 class MatchDocument(Document):

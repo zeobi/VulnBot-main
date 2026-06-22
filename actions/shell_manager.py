@@ -9,6 +9,9 @@ class ShellManager:
     _ssh_client = None
     _shell = None
 
+    def __init__(self):
+        self._connection_config = None
+
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
@@ -20,15 +23,25 @@ class ShellManager:
             self._connect()
         return self._shell
 
+    def configure(self, connection_config: dict):
+        self.close()
+        self._connection_config = dict(connection_config)
+
+    def clear_configuration(self):
+        self.close()
+        self._connection_config = None
+
     def _connect(self):
+        config = self._connection_config or Configs.basic_config.kali
         if self._ssh_client is None:
             self._ssh_client = paramiko.SSHClient()
             self._ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._ssh_client.connect(
-                hostname=Configs.basic_config.kali['hostname'],
-                username=Configs.basic_config.kali['username'],
-                password=Configs.basic_config.kali['password'],
-                port=Configs.basic_config.kali['port']
+                hostname=config['hostname'],
+                username=config['username'],
+                password=config['password'],
+                port=config['port'],
+                timeout=30,
             )
         if self._shell is None:
             self._shell = RemoteShell(self._ssh_client.invoke_shell())

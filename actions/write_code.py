@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from actions.execute_task import ExecuteTask
 from prompts.prompt import DeepPentestPrompt
-from server.chat.chat import _chat
+from llm.chat import _chat
 from utils.log_common import build_logger
 
 logger = build_logger()

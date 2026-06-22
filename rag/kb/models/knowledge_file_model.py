@@ -1,6 +1,6 @@
 from sqlalchemy import JSON, Boolean, Column, DateTime, Float, Integer, String, func
 
-from utils.session import Base
+from db.session import Base
 
 
 class KnowledgeFileModel(Base):

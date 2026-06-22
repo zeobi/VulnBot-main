@@ -11,7 +11,7 @@ class SSHOutputHandler:
     BUFFER_SIZE = 8192
     ANSI_PATTERN = re.compile(
         r"""
-        \x1b\][^\x07]*(?:\x07|\x1b\\)|
+        \x1b\][^\x07]*?(?:\x07|\x1b\\)|
         \x1b[PX^_].*?\x1b\\|
         \x1b[@-Z\\-_]|
         \x1b\[[0-?]*[ -/]*[@-~]
@@ -30,17 +30,27 @@ class SSHOutputHandler:
         return data.decode('utf-8', errors='replace')
 
     @staticmethod
-    def receive_data(shell: paramiko.Channel, timeout: float) -> str:
+    def receive_data(
+        shell: paramiko.Channel,
+        timeout: float,
+        completion_marker: Optional[str] = None,
+    ) -> str:
         """Receives data from shell with improved timeout handling."""
         start_time = time.time()
         retries = 0
         out = ""
+        marker_seen_at = None
 
         while True:
             if shell.recv_ready():
                 data = shell.recv(SSHOutputHandler.BUFFER_SIZE)
                 decoded_data = SSHOutputHandler.decode_output(data)
                 out += decoded_data
+
+            if completion_marker and re.search(
+                rf"{re.escape(completion_marker)}:\d+", out
+            ):
+                marker_seen_at = marker_seen_at or time.time()
 
             # Split the output into lines and clean up empty lines
             lines = out.split('\n')
@@ -72,6 +82,12 @@ class SSHOutputHandler:
                 # Stop if retries exceed threshold
                 if retries >= 3:
                     break
+
+            # The completion marker and the following prompt often arrive in
+            # separate SSH packets. Give the prompt a short grace period so it
+            # cannot leak into the next command's observation.
+            if marker_seen_at is not None and time.time() - marker_seen_at > 1.0:
+                break
 
             # Check for timeout
             if time.time() - start_time > timeout:
@@ -127,6 +143,15 @@ class RemoteShell:
             self.shell.settimeout(timeout)
             self.shell.set_combine_stderr(True)
 
+            # invoke_shell() may leave the login banner/prompt unread. Drain it so
+            # the first framed command cannot consume stale output and desync all
+            # subsequent command/result pairs.
+            SSHOutputHandler.receive_data(self.shell, timeout=min(timeout, 10.0))
+
+            # Keep PTY input echo out of observations. Framed completion output
+            # remains visible because stty only disables input echo.
+            self.execute_cmd("stty -echo")
+
             # Create .hushlogin to suppress the welcome message
             self.execute_cmd("touch ~/.hushlogin")
 
@@ -156,12 +181,19 @@ class RemoteShell:
         if error_msg := self._check_forbidden_commands(cmd):
             return error_msg
 
-        self.shell.send(cmd + '\n')
+        marker = "__VB_DONE__"
+        command = cmd.rstrip()
+        separator = " " if command.endswith((";", "&")) else "; "
+        framed_command = (
+            f"{command}{separator}printf '\\n{marker}:%s\\n' $?"
+        )
+        self.shell.send(framed_command + '\n')
 
-        output = self._handle_normal_execution()
+        output = self._handle_normal_execution(marker)
 
         final_output = ''.join(output)
         final_output = SSHOutputHandler.clean_terminal_output(final_output)
+        final_output = self._extract_framed_output(final_output, marker)
 
         if "dirb" in cmd and "gobuster" not in cmd:
             return clean_dirb_output(final_output)
@@ -171,12 +203,35 @@ class RemoteShell:
 
         return final_output
 
-    def _handle_normal_execution(self) -> list:
+    def send_input(self, value: str) -> str:
+        """Send input to an interactive child process without shell framing."""
+        self.shell.send(value + '\n')
+        output = SSHOutputHandler.receive_data(self.shell, timeout=120.0)
+        output = SSHOutputHandler.clean_terminal_output(output)
+        return self._extract_framed_output(output, "__VB_DONE__")
+
+    @staticmethod
+    def _extract_framed_output(output: str, marker: str) -> str:
+        match = re.search(rf"\r?\n?{re.escape(marker)}:(\d+)\r?\n?", output)
+        if not match:
+            return output
+
+        command_output = output[:match.start()].strip("\r\n")
+        exit_code = match.group(1)
+        if command_output:
+            return f"{command_output}\n[exit_code: {exit_code}]"
+        return f"[exit_code: {exit_code}]"
+
+    def _handle_normal_execution(self, completion_marker: str) -> list:
         """Handles normal command execution flow."""
         output = []
 
         time.sleep(.5)
-        data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)
+        data = SSHOutputHandler.receive_data(
+            self.shell,
+            timeout=120.0,
+            completion_marker=completion_marker,
+        )
         if data != '':
             output.append(data)
         last_line = data.strip().split('\n')[-1]
@@ -185,7 +240,11 @@ class RemoteShell:
                ['[y/n]', '[Y/n/q]', 'yes/no/[fingerprint]', '(yes/no)']):
             self.shell.send("yes\n")
             time.sleep(.5)
-            data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)
+            data = SSHOutputHandler.receive_data(
+                self.shell,
+                timeout=120.0,
+                completion_marker=completion_marker,
+            )
             if data != '':
                 output.append(data)
 

@@ -1,10 +1,9 @@
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
-from pydantic.class_validators import validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Column, String
 
-from utils.session import Base
+from db.session import Base
 
 
 class SessionModel(Base):
@@ -23,14 +22,15 @@ class ArrayField(List):
         return handler(List)
 
 class Session(BaseModel):
-    id: str = Field(None)
-    name: str = Field(None)
-    init_description: str = Field(None)
-    current_role_name: str = Field(None)
-    current_planner_id: str = Field(None)
+    id: Optional[str] = None
+    name: Optional[str] = None
+    init_description: Optional[str] = None
+    current_role_name: Optional[str] = None
+    current_planner_id: Optional[str] = None
     history_planner_ids: ArrayField[str] = Field(default_factory=list)
 
-    @validator('history_planner_ids', pre=True, each_item=False)
+    @field_validator('history_planner_ids', mode='before')
+    @classmethod
     def parse_history_planner_ids(cls, value):
         if isinstance(value, str):
             return value.split(',') if value else []

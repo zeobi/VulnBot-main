@@ -2,7 +2,7 @@ import uuid
 from typing import List
 
 from db.models.task_model import TaskModel, Task
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session

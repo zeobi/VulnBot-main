@@ -1,7 +1,7 @@
 import uuid
 
 from db.models.conversation_model import Conversation
-from utils.session import with_session
+from db.session import with_session
 
 
 @with_session

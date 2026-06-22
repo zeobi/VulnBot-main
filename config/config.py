@@ -1,4 +1,5 @@
 import os
+import re
 
 import dataclasses
 import sys
@@ -29,12 +30,6 @@ class BasicConfig(BaseFileSettings):
     enable_rag: bool = False
 
     mode: str = Mode.Auto
-
-    command_validator: dict = {
-        "enabled": True,
-        "max_retries": 2,
-        "model_conversation_id": None,
-    }
 
     @cached_property
     def LOG_PATH(self) -> Path:
@@ -69,6 +64,10 @@ class BasicConfig(BaseFileSettings):
 
 class DBConfig(BaseFileSettings):
     model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "db_config.yaml")
+    type: str = "sqlite"
+    sqlite: dict = {
+        "path": str(PENTEST_ROOT / "data/vulnbot.sqlite3"),
+    }
     mysql: dict = {
         "host": "",
         "port": 3306,
@@ -129,6 +128,7 @@ class LLMConfig(BaseFileSettings):
     model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "model_config.yaml")
 
     api_key: str = ""
+    api_key_env: str = ""
     llm_model: str = "openai"
     base_url: str = ""
     llm_model_name: str = ""
@@ -165,3 +165,25 @@ class ConfigsContainer:
 
 
 Configs = ConfigsContainer()
+
+
+def is_valid_env_var_name(value: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value))
+
+
+def resolve_llm_api_key(config: LLMConfig | None = None) -> str:
+    config = config or Configs.llm_config
+    if config.api_key:
+        return config.api_key
+    if config.api_key_env:
+        if not is_valid_env_var_name(config.api_key_env):
+            return ""
+        return os.environ.get(config.api_key_env, "")
+    return (
+        os.environ.get("ZHIPUAI_API_KEY")
+        or os.environ.get("BIGMODEL_API_KEY")
+        or os.environ.get("ZAI_API_KEY")
+        or os.environ.get("DEEPSEEK_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or ""
+    )
