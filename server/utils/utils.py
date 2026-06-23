@@ -89,6 +89,8 @@ def get_httpx_client(
     )
     for host in os.environ.get("no_proxy", "").split(","):
         if host := host.strip():
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
             # default_proxies.update({host: None}) # Origin code
             default_proxies.update(
                 {"all://" + host: None}

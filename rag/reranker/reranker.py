@@ -1,6 +1,15 @@
 import json
+import os
+from pathlib import Path
 from typing import Any, Sequence
 from pydantic import BaseModel
+
+
+PENTEST_ROOT = Path(os.environ.get("PENTEST_ROOT", ".")).resolve()
+HF_HOME = PENTEST_ROOT / "data" / "hf_cache"
+os.environ.setdefault("HF_HOME", str(HF_HOME))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(HF_HOME / "hub"))
+
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
 

@@ -317,6 +317,40 @@ def knowledge_base_page(api: ApiRequest):
 
         st.divider()
 
+        st.write("知识库检索测试")
+        search_query = st.text_input(
+            "输入检索关键词",
+            placeholder="例如：SQL injection / attack surface analysis / file upload",
+            key=f"kb_search_query_{kb}",
+        )
+        search_cols = st.columns([1, 3])
+        if search_cols[0].button(
+            "检索知识库",
+            disabled=not bool(search_query.strip()),
+            use_container_width=True,
+        ):
+            results = api.search_kb_docs(
+                knowledge_base_name=selected_kb,
+                query=search_query.strip(),
+                top_k=Configs.kb_config.top_k,
+                score_threshold=Configs.kb_config.score_threshold,
+                file_name="",
+                metadata={},
+            )
+            if results:
+                st.success(f"找到 {len(results)} 条相关片段")
+                for i, item in enumerate(results, 1):
+                    source = item.get("metadata", {}).get("source", "")
+                    with st.expander(f"{i}. {source or '未知来源'}", expanded=i == 1):
+                        st.write(item.get("page_content", ""))
+                        metadata = item.get("metadata") or {}
+                        if metadata:
+                            st.caption(json.dumps(metadata, ensure_ascii=False))
+            else:
+                st.warning("没有检索到相关片段。可以尝试降低 score_threshold 或换一个关键词。")
+
+        st.divider()
+
         cols = st.columns(3)
 
         if cols[1].button(
