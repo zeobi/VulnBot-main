@@ -57,6 +57,7 @@ class BasicConfig(BaseFileSettings):
     def make_dirs(self):
         for p in [
             self.LOG_PATH,
+            PENTEST_ROOT / "data" / "hf_cache",
         ]:
             p.mkdir(parents=True, exist_ok=True)
         Path(self.KB_ROOT_PATH).mkdir(parents=True, exist_ok=True)
