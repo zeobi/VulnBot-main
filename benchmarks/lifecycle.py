@@ -230,7 +230,7 @@ class AutoPenBenchLifecycle:
                     password=self.connection.password,
                     timeout=2.0,
                     auth_timeout=2.0,
-                    banner_timeout=2.0,
+                    banner_timeout=10.0,
                     allow_agent=False,
                     look_for_keys=False,
                 )

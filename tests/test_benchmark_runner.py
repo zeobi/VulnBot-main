@@ -69,6 +69,9 @@ class BenchmarkRunnerTests(unittest.TestCase):
             outcome = runner.run_task(task.task_id, max_steps=4, timeout=5)
 
         self.assertEqual(outcome.status, "completed", outcome.error)
+        self.assertIn("started_at", outcome.score)
+        self.assertIn("finished_at", outcome.score)
+        self.assertGreaterEqual(outcome.score["duration_seconds"], 0)
         replace_steps.assert_called_once()
         lifecycle.cleanup.assert_called_once()
         scorer.score.assert_called_once()
@@ -100,6 +103,9 @@ class BenchmarkRunnerTests(unittest.TestCase):
 
         self.assertEqual(outcome.status, "failed")
         self.assertIn("KeyboardInterrupt", outcome.error)
+        self.assertIn("started_at", outcome.score)
+        self.assertIn("finished_at", outcome.score)
+        self.assertGreaterEqual(outcome.score["duration_seconds"], 0)
         self.assertEqual(update_run.call_args_list[-1].kwargs["status"], "failed")
 
 

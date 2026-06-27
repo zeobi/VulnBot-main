@@ -9,6 +9,7 @@ PENTEST_ROOT = Path(os.environ.get("PENTEST_ROOT", ".")).resolve()
 HF_HOME = PENTEST_ROOT / "data" / "hf_cache"
 os.environ.setdefault("HF_HOME", str(HF_HOME))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(HF_HOME / "hub"))
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
@@ -29,15 +30,14 @@ class LangchainReranker:
             self,
             name_or_path: str,
             top_n: int = 1,
-            device: str = "cpu",
+            device: str = None,
             max_length: int = 512,
             batch_size: int = 32,
             num_workers: int = 0,
     ):
+        device = device or _resolve_reranker_device()
 
-        self._model = CrossEncoder(
-            model_name=name_or_path, max_length=max_length, device=device
-        )
+        self._model = CrossEncoder(**_cross_encoder_kwargs(name_or_path, max_length, device))
         self.top_n = top_n
         self.name_or_path = name_or_path
         self.device = device
@@ -81,3 +81,34 @@ class LangchainReranker:
             doc.get("metadata")["relevance_score"] = value
             final_results.append(doc)
         return final_results
+
+
+def _resolve_reranker_device() -> str:
+    device = os.environ.get("VULNBOT_RERANKER_DEVICE")
+    if device:
+        return device
+
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
+
+
+def _cross_encoder_kwargs(name_or_path: str, max_length: int, device: str) -> dict:
+    kwargs = {
+        "model_name": name_or_path,
+        "max_length": max_length,
+        "device": device,
+    }
+    if _hf_offline_enabled():
+        kwargs["local_files_only"] = True
+    return kwargs
+
+
+def _hf_offline_enabled() -> bool:
+    return any(
+        os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+        for name in ("VULNBOT_HF_OFFLINE", "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )

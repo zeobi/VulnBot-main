@@ -7,6 +7,7 @@ import subprocess
 import time
 import traceback
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable
 
 from rich.console import Console
@@ -92,6 +93,8 @@ class AutoPenBenchRunner:
             raise ValueError("max_steps must be at least 3 so every role can execute")
         if max_interactions <= 0:
             raise ValueError("max_interactions must be greater than zero")
+        started_at = datetime.now(timezone.utc)
+        started_monotonic = time.monotonic()
         task = self.adapter.get_task(task_id)
         create_tables()
         upsert_benchmark_tasks([task])
@@ -129,6 +132,7 @@ class AutoPenBenchRunner:
 
             score = self.scorer.score(task, trace, max_steps=max_steps)
             score["metadata"] = self._run_metadata()
+            score.update(_run_timing(started_at, started_monotonic))
             update_benchmark_run(
                 run.id,
                 status="completed",
@@ -158,6 +162,7 @@ class AutoPenBenchRunner:
                 "steps_executed": len(trace),
                 "max_steps": max_steps,
                 "metadata": self._run_metadata(),
+                **_run_timing(started_at, started_monotonic),
             }
             update_benchmark_run(
                 run.id,
@@ -330,3 +335,12 @@ def _git_dirty(path) -> bool | None:
     except OSError:
         return None
     return bool(result.stdout.strip()) if result.returncode == 0 else None
+
+
+def _run_timing(started_at: datetime, started_monotonic: float) -> dict:
+    finished_at = datetime.now(timezone.utc)
+    return {
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "duration_seconds": round(time.monotonic() - started_monotonic, 3),
+    }
